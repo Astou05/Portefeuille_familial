@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Table(name = "transactions")
 public class Transaction {
 
+
     @Id
     private String id; // String pour correspondre à ton diagramme
 
@@ -35,7 +36,6 @@ public class Transaction {
         this.date = LocalDateTime.now();
     }
 
-    // Getters et Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public Double getMontant() { return montant; }
