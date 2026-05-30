@@ -1,4 +1,4 @@
-package com.example.demo;
+package com.example.demo.exception;
 
 public class AppException extends RuntimeException {
 
@@ -13,3 +13,4 @@ public class AppException extends RuntimeException {
         return statusCode;
     }
 }
+

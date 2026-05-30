@@ -1,0 +1,835 @@
+﻿========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\DemoApplication.java ==========
+package com.example.demo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class DemoApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+
+}
+
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\controllers\ChildController.java ==========
+package com.example.demo.controllers;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.example.demo.objects.dtos.TransactionDTO;
+import com.example.demo.models.User;
+import com.example.demo.services.ChildService;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/enfant")
+public class ChildController {
+
+    @Autowired
+    private ChildService ChildService;
+
+    // POST /api/enfant/transfert
+    @PostMapping("/transfert")
+    public ResponseEntity<TransactionDTO> effectuerTransfert(@RequestBody Map<String, Object> payload) {
+        String emetteurId     = (String) payload.get("emetteurId");
+        String destinataireId = (String) payload.get("destinataireId");
+        Double amount        = Double.parseDouble(payload.get("amount").toString());
+        return ResponseEntity.status(201).body(
+            ChildService.effectuerTransfert(emetteurId, destinataireId, amount)
+        );
+    }
+
+    // GET /api/enfant/solde/{id}
+    @GetMapping("/solde/{id}")
+    public ResponseEntity<User> voirSolde(@PathVariable String id) {
+        return ResponseEntity.ok(ChildService.obtenirSolde(id));
+    }
+
+    // GET /api/enfant/historique/{id}
+    @GetMapping("/historique/{id}")
+    public ResponseEntity<List<TransactionDTO>> voirHistorique(@PathVariable String id) {
+        return ResponseEntity.ok(ChildService.obtenirHistoriqueEnfant(id));
+    }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\controllers\ParentController.java ==========
+package com.example.demo.controllers;
+
+import com.example.demo.models.User;
+import com.example.demo.objects.dtos.TransactionDTO;
+import com.example.demo.objects.dtos.Wrapper;
+import com.example.demo.services.ParentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/fathers")
+public class ParentController {
+
+    @Autowired
+    private ParentService parentService;
+
+    // 1. POST /api/v1/fathers/issue-money
+    @PostMapping("/issue-money")
+    public ResponseEntity<Wrapper<User>> issueMoney(@RequestBody Map<String, Object> payload) {
+        String fatherId = (String) payload.get("fatherId");
+        Double amount   = Double.parseDouble(payload.get("amount").toString());
+        User updatedFather = parentService.creerMonnaie(fatherId, amount);
+        return ResponseEntity.status(201).body(
+            new Wrapper<>(201, "Money successfully issued.", updatedFather)
+        );
+    }
+
+    // 2. POST /api/v1/fathers/deposit
+    @PostMapping("/deposit")
+    public ResponseEntity<Wrapper<TransactionDTO>> makeDeposit(@RequestBody Map<String, Object> payload) {
+        String fatherId = (String) payload.get("fatherId");
+        String childId  = (String) payload.get("childId");
+        Double amount   = Double.parseDouble(payload.get("amount").toString());
+        TransactionDTO tx = parentService.faireVersement(fatherId, childId, amount);
+        return ResponseEntity.status(201).body(
+            new Wrapper<>(201, "Deposit successfully executed.", tx)
+        );
+    }
+
+    // 3. POST /api/v1/fathers/withdraw
+    @PostMapping("/withdraw")
+    public ResponseEntity<Wrapper<TransactionDTO>> withdrawFromChild(@RequestBody Map<String, Object> payload) {
+        String fatherId = (String) payload.get("fatherId");
+        String childId  = (String) payload.get("childId");
+        Double amount   = Double.parseDouble(payload.get("amount").toString());
+        TransactionDTO tx = parentService.retirerArgentEnfant(fatherId, childId, amount);
+        return ResponseEntity.status(201).body(
+            new Wrapper<>(201, "Withdrawal successfully executed.", tx)
+        );
+    }
+
+    // 4. GET /api/v1/fathers/history
+    @GetMapping("/history")
+    public ResponseEntity<Wrapper<List<TransactionDTO>>> getHistory() {
+        List<TransactionDTO> history = parentService.obtenirHistoriqueGlobal();
+        return ResponseEntity.ok(
+            new Wrapper<>(200, "Transaction history retrieved successfully.", history)
+        );
+    }
+
+    // 5. GET /api/v1/fathers/wallets
+    @GetMapping("/wallets")
+    public ResponseEntity<Wrapper<List<User>>> getAllWallets() {
+        List<User> wallets = parentService.obtenirTousLesPortefeuilles();
+        return ResponseEntity.ok(
+            new Wrapper<>(200, "Wallets list retrieved successfully.", wallets)
+        );
+    }
+}
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\enums\EnumRole.java ==========
+package com.example.demo.enums;
+
+public enum EnumRole {
+    PERE,
+    ENFANT
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\enums\EnumType.java ==========
+package com.example.demo.enums;
+
+public enum EnumType {
+    CREATION_ARGENT,
+    VERSEMENT,
+    RETRAIT,
+    TRANSFERT 
+}
+
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\exception\AppException.java ==========
+package com.example.demo.exception;
+
+public class AppException extends RuntimeException {
+
+    private final int statusCode;
+
+    public AppException(int statusCode, String message) {
+        super(message);
+        this.statusCode = statusCode;
+    }
+
+    public int getStatusCode() {
+        return statusCode;
+    }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\exception\GlobalExceptionHandler.java ==========
+package com.example.demo.exception;
+
+import com.example.demo.objects.dtos.Wrapper;
+import com.example.demo.services.ErrorLogService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @Autowired
+    private ErrorLogService ErrorLogService;
+
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<Wrapper<Void>> handleAppException(AppException ex, HttpServletRequest request) {
+        ErrorLogService.loguer(request.getRequestURI(), request.getMethod(), ex.getStatusCode(), ex.getMessage(), "none");
+        
+        Wrapper<Void> response = new Wrapper<>(ex.getStatusCode(), resolveErrorLabel(ex.getStatusCode()), ex.getMessage());
+        return ResponseEntity.status(ex.getStatusCode()).body(response);
+    }
+
+    private String resolveErrorLabel(int code) {
+        return switch (code) {
+            case 400 -> "Bad Request";
+            case 403 -> "Forbidden";
+            case 404 -> "Not Found";
+            case 500 -> "Internal Server Error";
+            default  -> "Error";
+        };
+    }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\models\ErrorLog.java ==========
+package com.example.demo.models;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "logs_erreurs")
+public class ErrorLog {
+
+    @Id
+    private String id;
+
+    private LocalDateTime date;
+    private int statusCode;
+    private String endpoint;
+    private String method;
+    private String message;
+    private String parameters;
+
+    public ErrorLog() {}
+
+    public ErrorLog(String endpoint, String method, int statusCode, 
+                     String message, String parameters) {
+        this.id          = "LOG-" + java.util.UUID.randomUUID()
+                               .toString().substring(0, 8).toUpperCase();
+        this.date        = LocalDateTime.now();
+        this.endpoint    = endpoint;
+        this.method     = method;
+        this.statusCode  = statusCode;
+        this.message     = message;
+        this.parameters  = parameters;
+    }
+
+    public String getId()           { return id; }
+    public LocalDateTime getDate()  { return date; }
+    public int getStatusCode()      { return statusCode; }
+    public String getEndpoint()     { return endpoint; }
+    public String getMethode()      { return method; }
+    public String getMessage()      { return message; }
+    public String getParametres()   { return parameters; }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\models\Transaction.java ==========
+package com.example.demo.models;
+
+import jakarta.persistence.*;
+import com.example.demo.enums.EnumType;
+// import com.example.demo.models.User;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+// import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "transactions")
+public class Transaction {
+
+    @Id
+    private String id;
+
+    private Double amount;
+    private LocalDateTime date;
+
+    @Enumerated(jakarta.persistence.EnumType.STRING)
+    private EnumType type;
+
+    @ManyToOne
+    @JoinColumn(name = "emetteur_id", nullable = true)
+    @JsonIgnore
+    private User emetteur;
+
+    //  Correction : nullable = true (retrait et crÃ©ation_argent n'ont pas de destinataire)
+    @ManyToOne
+    @JoinColumn(name = "destinataire_id", nullable = true)
+    @JsonIgnore
+    private User destinataire;
+
+    public Transaction() {}
+
+    public Transaction(String id, Double amount, EnumType type,
+                       User emetteur, User destinataire) {
+        this.id          = id;
+        this.amount     = amount;
+        this.type        = type;
+        this.emetteur    = emetteur;
+        this.destinataire = destinataire;
+        this.date        = LocalDateTime.now();
+    }
+
+    public String getId()                  { return id; }
+    public void setId(String id)           { this.id = id; }
+
+    public Double getAmount()             { return amount; }
+    public void setAmount(Double m)       { this.amount = m; }
+
+    public LocalDateTime getDate()         { return date; }
+    public void setDate(LocalDateTime d)   { this.date = d; }
+
+    public EnumType getType()              { return type; }
+    public void setType(EnumType t)        { this.type = t; }
+
+    public User getEmetteur()               { return emetteur; }
+    public void setEmetteur(User e)         { this.emetteur = e; }
+
+    public User getDestinataire()           { return destinataire; }
+    public void setDestinataire(User d)     { this.destinataire = d; }
+
+    //  Alias utile pour compatibilitÃ© avec l'ancien code
+    public User getRecepteur()              { return this.destinataire; }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\models\User.java ==========
+package com.example.demo.models;
+
+import jakarta.persistence.*;
+import com.example.demo.enums.EnumRole;
+
+@Entity
+@Table(name = "users")
+public class User {
+
+    @Id
+    private String id;
+    private String name;
+    private String firstName;
+    private Double amount;
+
+    @Enumerated(EnumType.STRING)
+    private EnumRole role;
+
+    public User() {}
+
+    public User(String id, String name, String firstName, Double amount, EnumRole role) {
+        this.id        = id;
+        this.name      = name;
+        this.firstName = firstName;
+        this.amount    = amount;
+        this.role      = role;
+    }
+
+    public String getId()                  { return id; }
+    public void setId(String id)           { this.id = id; }
+    public String getName()                { return name; }
+    public void setName(String name)       { this.name = name; }
+    public String getFirstName()           { return firstName; }
+    public void setFirstName(String p)     { this.firstName = p; }
+    public Double getAmount()              { return amount; }
+    public void setAmount(Double m)        { this.amount = m; }
+    public EnumRole getRole()              { return role; }
+    public void setRole(EnumRole role)     { this.role = role; }
+}
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\objects\dtos\TransactionDTO.java ==========
+package com.example.demo.objects.dtos;
+
+import java.time.LocalDateTime;
+import com.example.demo.models.Transaction;
+
+public class TransactionDTO {
+
+    private String id;
+    private Double amount;
+    private LocalDateTime date;
+    private String type;
+    private String emetteurId;
+    private String emetteurNom;
+    private String destinataireId;
+    private String destinataireNom;
+
+    public TransactionDTO(Transaction t) {
+        this.id              = t.getId();
+        this.amount         = t.getAmount();
+        this.date            = t.getDate();
+        this.type            = t.getType().name();
+        this.emetteurId      = t.getEmetteur()     != null
+                                ? t.getEmetteur().getId()
+                                : null;
+        this.emetteurNom     = t.getEmetteur()     != null
+                                ? t.getEmetteur().getFirstName() + " " + t.getEmetteur().getName()
+                                : "System";
+        this.destinataireId  = t.getDestinataire() != null
+                                ? t.getDestinataire().getId()
+                                : null;
+        this.destinataireNom = t.getDestinataire() != null
+                                ? t.getDestinataire().getFirstName() + " " + t.getDestinataire().getName()
+                                : null;
+    }
+
+    public String getId()              { return id; }
+    public Double getAmount()         { return amount; }
+    public LocalDateTime getDate()     { return date; }
+    public String getType()            { return type; }
+    public String getEmetteurId()      { return emetteurId; }
+    public String getEmetteurNom()     { return emetteurNom; }
+    public String getDestinataireId()  { return destinataireId; }
+    public String getDestinataireNom() { return destinataireNom; }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\objects\dtos\Wrapper.java ==========
+package com.example.demo.objects.dtos;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import java.time.LocalDateTime;
+
+@JsonInclude(JsonInclude.Include.NON_NULL) // Masque les champs nulls dans le JSON final
+public class Wrapper<T> {
+    private String timestamp;
+    private int status;
+    private String message;
+    private T data;
+    private String error;
+
+    // Constructeur SuccÃ¨s
+    public Wrapper(int status, String message, T data) {
+        this.timestamp = LocalDateTime.now().toString();
+        this.status = status;
+        this.message = message;
+        this.data = data;
+        this.error = null;
+    }
+
+    // Constructeur Ã‰chec
+    public Wrapper(int status, String error, String message) {
+        this.timestamp = LocalDateTime.now().toString();
+        this.status = status;
+        this.error = error;
+        this.message = message;
+        this.data = null;
+    }
+
+    // Getters et Setters
+    public String getTimestamp() { return timestamp; }
+    public int getStatus() { return status; }
+    public String getMessage() { return message; }
+    public T getData() { return data; }
+    public String getError() { return error; }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\repositories\ErrorLogRepository.java ==========
+package com.example.demo.repositories;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.demo.models.ErrorLog;
+
+public interface ErrorLogRepository extends JpaRepository<ErrorLog, String> {
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\repositories\TransactionRepository.java ==========
+package com.example.demo.repositories;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.demo.models.Transaction;
+
+import java.util.List;
+
+public interface TransactionRepository extends JpaRepository<Transaction, String> {
+    // âœ… UtilisÃ© pour l'historique d'un enfant (Ã©metteur OU destinataire)
+    List<Transaction> findByEmetteurIdOrDestinataireId(String emetteurId, String destinataireId);
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\repositories\UserRepository.java ==========
+package com.example.demo.repositories;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import com.example.demo.models.User;
+
+public interface UserRepository extends JpaRepository<User, String> {
+}
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\services\ChildService.java ==========
+package com.example.demo.services;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.demo.exception.AppException;
+import com.example.demo.enums.EnumRole;
+import com.example.demo.enums.EnumType;
+import com.example.demo.models.Transaction;    // â† enlever le "." aprÃ¨s "model"
+import com.example.demo.objects.dtos.TransactionDTO;
+import com.example.demo.repositories.TransactionRepository;
+import com.example.demo.repositories.UserRepository;
+import com.example.demo.models.User;
+
+@Service
+public class ChildService {
+
+    @Autowired
+    private UserRepository UserRepository;
+
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    // 1. Transfert entre enfants
+    @Transactional
+    public TransactionDTO effectuerTransfert(String emetteurId, String destinataireId, Double amount) {
+
+        if (amount == null || amount <= 0) {
+            throw new AppException(400,
+                "Invalid amount. The transfer amount must be strictly greater than zero. " +
+                "Received value: " + amount + ".");
+        }
+
+        if (emetteurId.equals(destinataireId)) {
+            throw new AppException(403,
+                "Self-transfer is not allowed. The sender and beneficiary accounts must be different. " +
+                "Both sender and receiver are pointing to account ID: '" + emetteurId + "'.");
+        }
+
+        User emetteur = UserRepository.findById(emetteurId)
+                .orElseThrow(() -> new AppException(404,
+                    "Account not found. The sender account with ID '" + emetteurId +
+                    "' does not exist in the system."));
+
+        if (!emetteur.getRole().equals(EnumRole.ENFANT)) {
+            throw new AppException(403,
+                "Access denied. Only child accounts are allowed to initiate a transfer. " +
+                "Account '" + emetteurId + "' has role [" + emetteur.getRole() + "] and is not authorized.");
+        }
+
+        User destinataire = UserRepository.findById(destinataireId)
+                .orElseThrow(() -> new AppException(404,
+                    "Account not found. The recipient account with ID '" + destinataireId +
+                    "' does not exist in the system."));
+
+        if (!destinataire.getRole().equals(EnumRole.ENFANT)) {
+            throw new AppException(400,
+                "Invalid recipient. Transfers can only be made between child accounts. " +
+                "Account '" + destinataireId + "' has role [" + destinataire.getRole() + "] " +
+                "and cannot receive a transfer from a child.");
+        }
+
+        if (emetteur.getAmount() < amount) {
+            throw new AppException(403,
+                "Insufficient funds. The account balance of '" + emetteurId + "' is " +
+                emetteur.getAmount() + ", which is lower than the requested transfer amount (" +
+                amount + "). Please reduce the transfer amount or recharge the account first.");
+        }
+
+        emetteur.setAmount(emetteur.getAmount() - amount);
+        destinataire.setAmount(destinataire.getAmount() + amount);
+        UserRepository.save(emetteur);
+        UserRepository.save(destinataire);
+
+        Transaction t = new Transaction(
+            "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
+            amount,
+            EnumType.TRANSFERT,
+            emetteur,
+            destinataire
+        );
+        return new TransactionDTO(transactionRepository.save(t));
+    }
+
+    // 2. Consulter son propre solde
+    public User obtenirSolde(String enfantId) {
+        User enfant = UserRepository.findById(enfantId)
+                .orElseThrow(() -> new AppException(404,
+                    "Account not found. No account exists with ID: " + enfantId));
+
+        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
+            throw new AppException(403,
+                "Access denied. This endpoint is reserved for child accounts only. " +
+                "Account '" + enfantId + "' has role [" + enfant.getRole() + "].");
+        }
+        return enfant;
+    }
+
+    // 3. Historique de l'enfant
+    public List<TransactionDTO> obtenirHistoriqueEnfant(String enfantId) {
+        User enfant = UserRepository.findById(enfantId)
+                .orElseThrow(() -> new AppException(404,
+                    "Account not found. No account exists with ID: " + enfantId));
+
+        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
+            throw new AppException(403,
+                "Access denied. Transaction history for this endpoint is restricted to child accounts. " +
+                "Account '" + enfantId + "' has role [" + enfant.getRole() + "] and is not authorized.");
+        }
+
+        return transactionRepository
+                .findByEmetteurIdOrDestinataireId(enfantId, enfantId)
+                .stream()
+                .map(TransactionDTO::new)
+                .collect(Collectors.toList());
+    }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\services\ErrorLogService.java ==========
+package com.example.demo.services;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.example.demo.models.ErrorLog;
+import com.example.demo.repositories.ErrorLogRepository;
+
+@Service
+public class ErrorLogService {
+
+    @Autowired
+    private ErrorLogRepository ErrorLogRepository;
+
+    public void loguer(String endpoint, String methode, 
+                    int statusCode, String message, String parametres) {
+        ErrorLog log = new ErrorLog(endpoint, methode, statusCode, message, parametres);
+        ErrorLogRepository.save(log);
+    }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\main\java\com\example\demo\services\ParentService.java ==========
+package com.example.demo.services;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import com.example.demo.models.Transaction;
+import com.example.demo.objects.dtos.TransactionDTO;
+import com.example.demo.repositories.TransactionRepository;
+import com.example.demo.repositories.UserRepository;
+import com.example.demo.models.User;
+import com.example.demo.enums.EnumRole;
+import com.example.demo.enums.EnumType;
+import com.example.demo.exception.AppException;
+
+@Service
+public class ParentService {
+
+    @Autowired
+    private UserRepository UserRepository;
+
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    // 1. CrÃ©er de la monnaie
+    @Transactional
+    public User creerMonnaie(String pereId, Double amount) {
+
+        if (amount == null || amount <= 0) {
+            throw new AppException(400,
+                "Invalid amount. The amount to create must be strictly greater than zero.");
+        }
+
+        User pere = UserRepository.findById(pereId)
+                .orElseThrow(() -> new AppException(404,
+                    "User not found. No account exists with ID: " + pereId));
+
+        if (!pere.getRole().equals(EnumRole.PERE)) {
+            throw new AppException(403,
+                "Access denied. Only the father account is allowed to create money in the system. " +
+                "User '" + pereId + "' has role [" + pere.getRole() + "] and is not authorized.");
+        }
+
+        pere.setAmount(pere.getAmount() + amount);
+        UserRepository.save(pere);
+
+        Transaction t = new Transaction(
+            "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
+            amount,
+            EnumType.CREATION_ARGENT,
+            null,
+            pere
+        );
+        transactionRepository.save(t);
+
+        return pere;
+    }
+
+    // 2. Verser de l'argent Ã  un enfant
+    @Transactional
+    public TransactionDTO faireVersement(String pereId, String enfantId, Double amount) {
+
+        if (amount == null || amount <= 0) {
+            throw new AppException(400,
+                "Invalid amount. The transfer amount must be strictly greater than zero.");
+        }
+
+        User pere = UserRepository.findById(pereId)
+                .orElseThrow(() -> new AppException(404,
+                    "Father account not found. No account exists with ID: " + pereId));
+
+        if (!pere.getRole().equals(EnumRole.PERE)) {
+            throw new AppException(403,
+                "Access denied. Only the father account is allowed to deposit money into a child's account. " +
+                "User '" + pereId + "' has role [" + pere.getRole() + "] and is not authorized.");
+        }
+
+        User enfant = UserRepository.findById(enfantId)
+                .orElseThrow(() -> new AppException(404,
+                    "Child account not found. No account exists with ID: " + enfantId));
+
+        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
+            throw new AppException(400,
+                "Invalid recipient. The account '" + enfantId + "' is not a child account. " +
+                "The father can only deposit money into child accounts.");
+        }
+
+        if (pere.getAmount() < amount) {
+            throw new AppException(403,
+                "Insufficient funds. The father's current balance (" + pere.getAmount() +
+                ") is lower than the requested deposit amount (" + amount + "). " +
+                "Please create money first or reduce the deposit amount.");
+        }
+
+        pere.setAmount(pere.getAmount() - amount);
+        enfant.setAmount(enfant.getAmount() + amount);
+        UserRepository.save(pere);
+        UserRepository.save(enfant);
+
+        Transaction t = new Transaction(
+            "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
+            amount,
+            EnumType.VERSEMENT,
+            pere,
+            enfant
+        );
+        return new TransactionDTO(transactionRepository.save(t));
+    }
+
+    // 3. Retirer de l'argent d'un enfant
+    @Transactional
+    public TransactionDTO retirerArgentEnfant(String pereId, String enfantId, Double amount) {
+
+        if (amount == null || amount <= 0) {
+            throw new AppException(400,
+                "Invalid amount. The withdrawal amount must be strictly greater than zero.");
+        }
+
+        User pere = UserRepository.findById(pereId)
+                .orElseThrow(() -> new AppException(404,
+                    "Father account not found. No account exists with ID: " + pereId));
+
+        if (!pere.getRole().equals(EnumRole.PERE)) {
+            throw new AppException(403,
+                "Access denied. Only the father account is allowed to withdraw money from a child's account. " +
+                "User '" + pereId + "' has role [" + pere.getRole() + "] and is not authorized.");
+        }
+
+        User enfant = UserRepository.findById(enfantId)
+                .orElseThrow(() -> new AppException(404,
+                    "Child account not found. No account exists with ID: " + enfantId));
+
+        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
+            throw new AppException(400,
+                "Invalid source account. The account '" + enfantId + "' is not a child account. " +
+                "The father can only withdraw money from child accounts.");
+        }
+
+        if (enfant.getAmount() < amount) {
+            throw new AppException(403,
+                "Insufficient funds. The child account '" + enfantId + "' has a current balance of " +
+                enfant.getAmount() + ", which is lower than the requested withdrawal amount (" +
+                amount + "). The father cannot withdraw more than the child's available balance.");
+        }
+
+        enfant.setAmount(enfant.getAmount() - amount);
+        pere.setAmount(pere.getAmount() + amount);
+        UserRepository.save(enfant);
+        UserRepository.save(pere);
+
+        Transaction t = new Transaction(
+            "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
+            amount,
+            EnumType.RETRAIT,
+            enfant,
+            pere
+        );
+        return new TransactionDTO(transactionRepository.save(t));
+    }
+
+    // 4. Historique global
+    public List<TransactionDTO> obtenirHistoriqueGlobal() {
+        return transactionRepository.findAll()
+                .stream()
+                .map(TransactionDTO::new)
+                .collect(Collectors.toList());
+    }
+
+    // 5. Tous les portefeuilles
+    public List<User> obtenirTousLesPortefeuilles() {
+        return UserRepository.findAll();
+    }
+}
+
+
+========== C:\Users\HP 840 G6\Portefeuille_familial\demo\src\test\java\com\example\demo\DemoApplicationTests.java ==========
+package com.example.demo;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class DemoApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+
+
