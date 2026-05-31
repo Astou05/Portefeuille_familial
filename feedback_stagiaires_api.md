@@ -70,7 +70,7 @@ POST   /users
 PUT    /users/{id}
 DELETE /users/{id}
 ```
-
+<!--  -->
 **Autres points à maîtriser :**
 
 - Verbes HTTP sémantiques : GET, POST, PUT, PATCH, DELETE
@@ -78,7 +78,7 @@ DELETE /users/{id}
 - Versioning : /api/v1/...
 - Pagination et filtrage sur les endpoints de liste
 
-### Etape 3 — Keycloak
+<!-- ### Etape 3 — Keycloak -->
 
 Sequence d'apprentissage :
 
@@ -88,3 +88,4 @@ Sequence d'apprentissage :
 4. **Integration Spring Boot** — spring-boot-starter-oauth2-resource-server, validation des JWT
 5. **Securiser les APIs existantes** — @PreAuthorize, mapping rôles Keycloak vers Spring Security
 6. **Tester dans Postman** — Récupérer un token, l'injecter dans les requêtes
+<!--  -->

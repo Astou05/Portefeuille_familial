@@ -11,11 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.demo.exception.AppException;
 import com.example.demo.enums.EnumRole;
 import com.example.demo.enums.EnumType;
-import com.example.demo.models.Transaction;
+import com.example.demo.objects.daos.Transaction;
+import com.example.demo.objects.daos.User;
 import com.example.demo.objects.dtos.TransactionDTO;
 import com.example.demo.repositories.TransactionRepository;
 import com.example.demo.repositories.UserRepository;
-import com.example.demo.models.User;
 
 @Service
 public class ChildService {
@@ -47,9 +47,9 @@ public class ChildService {
                     "Account not found. The sender account with ID '" + emetteurId +
                     "' does not exist in the system."));
                     
-        if (!emetteur.getRole().equals(EnumRole.CHILD)) {
+        if (!emetteur.getRole().equals(EnumRole.ENFANT)) {
             throw new AppException(403,
-                "Access denied. Only child accounts are allowed to initiate a transfer. " +
+                "Access denied. Only E accounts are allowed to initiate a transfer. " +
                 "Account '" + emetteurId + "' has role [" + emetteur.getRole() + "] and is not authorized.");
         }
 
@@ -58,11 +58,11 @@ public class ChildService {
                     "Account not found. The recipient account with ID '" + destinataireId +
                     "' does not exist in the system."));
                     
-        if (!destinataire.getRole().equals(EnumRole.CHILD)) {
+        if (!destinataire.getRole().equals(EnumRole.ENFANT)) {
             throw new AppException(400,
-                "Invalid recipient. Transfers can only be made between child accounts. " +
+                "Invalid recipient. Transfers can only be made between E accounts. " +
                 "Account '" + destinataireId + "' has role [" + destinataire.getRole() + "] " +
-                "and cannot receive a transfer from a child.");
+                "and cannot receive a transfer from a E.");
         }
 
         if (emetteur.getAmount() < amount) {
@@ -92,9 +92,9 @@ public class ChildService {
         User enfant = userRepository.findById(enfantId)
                 .orElseThrow(() -> new AppException(404,
                     "Account not found. No account exists with ID: " + enfantId));
-        if (!enfant.getRole().equals(EnumRole.CHILD)) {
+        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
             throw new AppException(403,
-                "Access denied. This endpoint is reserved for child accounts only. " +
+                "Access denied. This endpoint is reserved for E accounts only. " +
                 "Account '" + enfantId + "' has role [" + enfant.getRole() + "].");
         }
         return enfant;
@@ -105,9 +105,9 @@ public class ChildService {
         User enfant = userRepository.findById(enfantId)
                 .orElseThrow(() -> new AppException(404,
                     "Account not found. No account exists with ID: " + enfantId));
-        if (!enfant.getRole().equals(EnumRole.CHILD)) {
+        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
             throw new AppException(403,
-                "Access denied. Transaction history for this endpoint is restricted to child accounts. " +
+                "Access denied. Transaction history for this endpoint is restricted to E accounts. " +
                 "Account '" + enfantId + "' has role [" + enfant.getRole() + "] and is not authorized.");
         }
 

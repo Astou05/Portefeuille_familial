@@ -1,91 +1,17 @@
-// package com.example.demo.controllers;
-
-// import com.example.demo.models.User;
-// import com.example.demo.objects.dtos.TransactionDTO;
-// import com.example.demo.objects.dtos.Wrapper;
-// import com.example.demo.services.ParentService;
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.http.ResponseEntity;
-// import org.springframework.web.bind.annotation.*;
-
-// import java.util.List;
-// import java.util.Map;
-
-// @RestController
-// @RequestMapping("/api/v1/fathers")
-// public class ParentController {
-
-//     @Autowired
-//     private ParentService parentService;
-
-//     // 1. POST /api/v1/fathers/issue-money
-//     @PostMapping("/issue-money")
-//     public ResponseEntity<Wrapper<User>> issueMoney(@RequestBody Map<String, Object> payload) {
-//         String fatherId = (String) payload.get("fatherId");
-//         Double amount   = Double.parseDouble(payload.get("amount").toString());
-//         User updatedFather = parentService.creerMonnaie(fatherId, amount);
-//         return ResponseEntity.status(201).body(
-//             new Wrapper<>(201, "Money successfully issued.", updatedFather)
-//         );
-//     }
-
-//     // 2. POST /api/v1/fathers/deposit
-//     @PostMapping("/deposit")
-//     public ResponseEntity<Wrapper<TransactionDTO>> makeDeposit(@RequestBody Map<String, Object> payload) {
-//         String fatherId = (String) payload.get("fatherId");
-//         String childId  = (String) payload.get("childId");
-//         Double amount   = Double.parseDouble(payload.get("amount").toString());
-//         TransactionDTO tx = parentService.faireVersement(fatherId, childId, amount);
-//         return ResponseEntity.status(201).body(
-//             new Wrapper<>(201, "Deposit successfully executed.", tx)
-//         );
-//     }
-
-//     // 3. POST /api/v1/fathers/withdraw
-//     @PostMapping("/withdraw")
-//     public ResponseEntity<Wrapper<TransactionDTO>> withdrawFromChild(@RequestBody Map<String, Object> payload) {
-//         String fatherId = (String) payload.get("fatherId");
-//         String childId  = (String) payload.get("childId");
-//         Double amount   = Double.parseDouble(payload.get("amount").toString());
-//         TransactionDTO tx = parentService.retirerArgentEnfant(fatherId, childId, amount);
-//         return ResponseEntity.status(201).body(
-//             new Wrapper<>(201, "Withdrawal successfully executed.", tx)
-//         );
-//     }
-
-//     // 4. GET /api/v1/fathers/history
-//     @GetMapping("/history")
-//     public ResponseEntity<Wrapper<List<TransactionDTO>>> getHistory() {
-//         List<TransactionDTO> history = parentService.obtenirHistoriqueGlobal();
-//         return ResponseEntity.ok(
-//             new Wrapper<>(200, "Transaction history retrieved successfully.", history)
-//         );
-//     }
-
-//     // 5. GET /api/v1/fathers/wallets
-//     @GetMapping("/wallets")
-//     public ResponseEntity<Wrapper<List<User>>> getAllWallets() {
-//         List<User> wallets = parentService.obtenirTousLesPortefeuilles();
-//         return ResponseEntity.ok(
-//             new Wrapper<>(200, "Wallets list retrieved successfully.", wallets)
-//         );
-//     }
-// }
-
-
 package com.example.demo.controllers;
 
-import com.example.demo.models.User;
 import com.example.demo.objects.dtos.TransactionDTO;
+import com.example.demo.objects.dtos.UserDTO;
 import com.example.demo.objects.dtos.Wrapper;
 import com.example.demo.services.ParentService;
-import com.example.demo.exception.AppException; // Assure-toi d'importer ton exception
+import com.example.demo.exception.AppException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/fathers")
@@ -94,65 +20,76 @@ public class ParentController {
     @Autowired
     private ParentService parentService;
 
-    // Méthode utilitaire pour extraire et valider les paramètres
-    private String getRequiredParam(Map<String, Object> payload, String key) {
+    private String getParam(Map<String, Object> payload, String key) {
         if (!payload.containsKey(key) || payload.get(key) == null) {
             throw new AppException(400, "Missing required parameter: " + key);
         }
         return payload.get(key).toString();
     }
 
-    // 1. POST /api/v1/fathers/issue-money
-    @PostMapping("/issue-money")
-    public ResponseEntity<Wrapper<User>> issueMoney(@RequestBody Map<String, Object> payload) {
-        String fatherId = getRequiredParam(payload, "fatherId");
-        Double amount = Double.parseDouble(getRequiredParam(payload, "amount"));
-        
-        User updatedFather = parentService.creerMonnaie(fatherId, amount);
+    private Double getAmount(Map<String, Object> payload) {
+        return Double.parseDouble(getParam(payload, "amount"));
+    }
+
+    // POST /api/v1/fathers/{id}/balance  ← était : /issue-money (action !)
+    @PostMapping("/{id}/balance")
+    public ResponseEntity<Wrapper<UserDTO>> issueMoney(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> payload) {
+
+        Double amount = getAmount(payload);
+        UserDTO dto = new UserDTO(parentService.creerMonnaie(id, amount));
         return ResponseEntity.status(201).body(
-            new Wrapper<>(201, "Money successfully issued.", updatedFather)
+            Wrapper.success(201, "Money successfully issued.", dto)
         );
     }
 
-    // 2. POST /api/v1/fathers/deposit
-    @PostMapping("/deposit")
-    public ResponseEntity<Wrapper<TransactionDTO>> makeDeposit(@RequestBody Map<String, Object> payload) {
-        String fatherId = getRequiredParam(payload, "fatherId");
-        String childId = getRequiredParam(payload, "childId");
-        Double amount = Double.parseDouble(getRequiredParam(payload, "amount"));
-        
-        TransactionDTO tx = parentService.faireVersement(fatherId, childId, amount);
+    // POST /api/v1/fathers/{id}/deposits  ← était : /deposit (action !)
+    @PostMapping("/{id}/deposits")
+    public ResponseEntity<Wrapper<TransactionDTO>> makeDeposit(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> payload) {
+
+        String childId = getParam(payload, "childId");
+        Double amount  = getAmount(payload);
+        TransactionDTO tx = parentService.faireVersement(id, childId, amount);
         return ResponseEntity.status(201).body(
-            new Wrapper<>(201, "Deposit successfully executed.", tx)
+            Wrapper.success(201, "Deposit successfully executed.", tx)
         );
     }
 
-    // 3. POST /api/v1/fathers/withdraw
-    @PostMapping("/withdraw")
-    public ResponseEntity<Wrapper<TransactionDTO>> withdrawFromChild(@RequestBody Map<String, Object> payload) {
-        String fatherId = getRequiredParam(payload, "fatherId");
-        String childId = getRequiredParam(payload, "childId");
-        Double amount = Double.parseDouble(getRequiredParam(payload, "amount"));
-        
-        TransactionDTO tx = parentService.retirerArgentEnfant(fatherId, childId, amount);
+    // POST /api/v1/fathers/{id}/withdrawals  ← était : /withdraw (action !)
+    @PostMapping("/{id}/withdrawals")
+    public ResponseEntity<Wrapper<TransactionDTO>> withdrawFromChild(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> payload) {
+
+        String childId = getParam(payload, "childId");
+        Double amount  = getAmount(payload);
+        TransactionDTO tx = parentService.retirerArgentEnfant(id, childId, amount);
         return ResponseEntity.status(201).body(
-            new Wrapper<>(201, "Withdrawal successfully executed.", tx)
+            Wrapper.success(201, "Withdrawal successfully executed.", tx)
         );
     }
 
-    // 4. GET /api/v1/fathers/history
-    @GetMapping("/history")
-    public ResponseEntity<Wrapper<List<TransactionDTO>>> getHistory() {
+    // GET /api/v1/fathers/transactions  ← était : /history
+    @GetMapping("/transactions")
+    public ResponseEntity<Wrapper<List<TransactionDTO>>> getTransactions() {
         return ResponseEntity.ok(
-            new Wrapper<>(200, "Transaction history retrieved successfully.", parentService.obtenirHistoriqueGlobal())
+            Wrapper.success(200, "Transactions retrieved successfully.",
+                parentService.obtenirHistoriqueGlobal())
         );
     }
 
-    // 5. GET /api/v1/fathers/wallets
+    // GET /api/v1/fathers/wallets
     @GetMapping("/wallets")
-    public ResponseEntity<Wrapper<List<User>>> getAllWallets() {
+    public ResponseEntity<Wrapper<List<UserDTO>>> getAllWallets() {
+        List<UserDTO> wallets = parentService.obtenirTousLesPortefeuilles()
+            .stream()
+            .map(UserDTO::new)
+            .collect(Collectors.toList());
         return ResponseEntity.ok(
-            new Wrapper<>(200, "Wallets list retrieved successfully.", parentService.obtenirTousLesPortefeuilles())
+            Wrapper.success(200, "Wallets retrieved successfully.", wallets)
         );
     }
 }

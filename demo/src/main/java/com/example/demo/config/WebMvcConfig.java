@@ -14,6 +14,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         // Applique la journalisation automatique sur tous les endpoints de l'API
-        registry.addInterceptor(logInterceptor).addPathPatterns("/api/v1/**");
+        registry.addInterceptor(logInterceptor).addPathPatterns("/api/**");
     }
 }

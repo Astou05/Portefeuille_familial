@@ -1,4 +1,4 @@
-package com.example.demo.models;
+package com.example.demo.objects.daos;
 
 import jakarta.persistence.*;
 import com.example.demo.enums.EnumRole;
