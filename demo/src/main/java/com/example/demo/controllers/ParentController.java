@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/fathers")
+@RequestMapping("/api/v1/father") 
 public class ParentController {
 
     @Autowired
@@ -31,48 +31,45 @@ public class ParentController {
         return Double.parseDouble(getParam(payload, "amount"));
     }
 
-    // POST /api/v1/fathers/{id}/balance  ← était : /issue-money (action !)
-    @PostMapping("/{id}/balance")
+    // POST /api/v1/father/balance
+    @PostMapping("/balance")
     public ResponseEntity<Wrapper<UserDTO>> issueMoney(
-            @PathVariable String id,
             @RequestBody Map<String, Object> payload) {
 
         Double amount = getAmount(payload);
-        UserDTO dto = new UserDTO(parentService.creerMonnaie(id, amount));
+        UserDTO dto = new UserDTO(parentService.creerMonnaie(amount)); // ← plus d'id
         return ResponseEntity.status(201).body(
             Wrapper.success(201, "Money successfully issued.", dto)
         );
     }
 
-    // POST /api/v1/fathers/{id}/deposits  ← était : /deposit (action !)
-    @PostMapping("/{id}/deposits")
+    // POST /api/v1/father/deposits
+    @PostMapping("/deposits")
     public ResponseEntity<Wrapper<TransactionDTO>> makeDeposit(
-            @PathVariable String id,
             @RequestBody Map<String, Object> payload) {
 
         String childId = getParam(payload, "childId");
         Double amount  = getAmount(payload);
-        TransactionDTO tx = parentService.faireVersement(id, childId, amount);
+        TransactionDTO tx = parentService.faireVersement(childId, amount); // ← plus d'id père
         return ResponseEntity.status(201).body(
             Wrapper.success(201, "Deposit successfully executed.", tx)
         );
     }
 
-    // POST /api/v1/fathers/{id}/withdrawals  ← était : /withdraw (action !)
-    @PostMapping("/{id}/withdrawals")
+    // POST /api/v1/father/withdrawals
+    @PostMapping("/withdrawals")
     public ResponseEntity<Wrapper<TransactionDTO>> withdrawFromChild(
-            @PathVariable String id,
             @RequestBody Map<String, Object> payload) {
 
         String childId = getParam(payload, "childId");
         Double amount  = getAmount(payload);
-        TransactionDTO tx = parentService.retirerArgentEnfant(id, childId, amount);
+        TransactionDTO tx = parentService.retirerArgentEnfant(childId, amount); // ← plus d'id père
         return ResponseEntity.status(201).body(
             Wrapper.success(201, "Withdrawal successfully executed.", tx)
         );
     }
 
-    // GET /api/v1/fathers/transactions  ← était : /history
+    // GET /api/v1/father/transactions
     @GetMapping("/transactions")
     public ResponseEntity<Wrapper<List<TransactionDTO>>> getTransactions() {
         return ResponseEntity.ok(
@@ -81,7 +78,7 @@ public class ParentController {
         );
     }
 
-    // GET /api/v1/fathers/wallets
+    // GET /api/v1/father/wallets
     @GetMapping("/wallets")
     public ResponseEntity<Wrapper<List<UserDTO>>> getAllWallets() {
         List<UserDTO> wallets = parentService.obtenirTousLesPortefeuilles()

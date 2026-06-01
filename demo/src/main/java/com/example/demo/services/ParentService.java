@@ -25,27 +25,27 @@ public class ParentService {
     @Autowired
     private TransactionRepository transactionRepository;
 
+    
     private String clean(String id) {
         return id != null ? id.trim() : "";
     }
 
+    private User getPERE() {
+        return userRepository.findByRole(EnumRole.PERE)
+            .orElseThrow(() -> new AppException(404, "PERE account not found."));
+    }
+
     @Transactional
-    public User creerMonnaie(String pereId, Double amount) {
+    public User creerMonnaie(Double amount) {
         if (amount == null || amount <= 0) {
             throw new AppException(400, "Invalid amount. Must be > 0.");
         }
 
-        String id = clean(pereId);
-        User pere = userRepository.findById(id)
-                .orElseThrow(() -> new AppException(404, "Father account not found: " + id));
-
-        if (pere.getRole() != EnumRole.PERE) {
-            throw new AppException(403, "Access denied. Only FATHER can create money.");
-        }
+        User pere = getPERE(); // ← automatique
 
         pere.setAmount(pere.getAmount() + amount);
         userRepository.save(pere);
-        
+
         Transaction t = new Transaction(
             "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
             amount, EnumType.MONEY_CREATION, null, pere
@@ -54,21 +54,22 @@ public class ParentService {
         return pere;
     }
 
+    
     @Transactional
-    public TransactionDTO faireVersement(String pereId, String enfantId, Double amount) {
-        if (amount == null || amount <= 0) throw new AppException(400, "Invalid amount.");
+    public TransactionDTO faireVersement(String enfantId, Double amount) {
+        if (amount == null || amount <= 0)
+            throw new AppException(400, "Invalid amount.");
 
-        String pid = clean(pereId);
-        String eid = clean(enfantId);
+        String eid = clean(enfantId); 
 
-        User pere = userRepository.findById(pid)
-                .orElseThrow(() -> new AppException(404, "Father not found: " + pid));
+        User pere   = getPERE(); 
         User enfant = userRepository.findById(eid)
-                .orElseThrow(() -> new AppException(404, "Child not found: " + eid));
+                .orElseThrow(() -> new AppException(404, "ENFANT not found: " + eid));
 
-        if (pere.getRole() != EnumRole.PERE) throw new AppException(403, "Unauthorized.");
-        if (enfant.getRole() != EnumRole.ENFANT) throw new AppException(400, "Recipient is not a child.");
-        if (pere.getAmount() < amount) throw new AppException(403, "Insufficient funds.");
+        if (enfant.getRole() != EnumRole.ENFANT)
+            throw new AppException(400, "Recipient is not a ENFANT.");
+        if (pere.getAmount() < amount)
+            throw new AppException(403, "Insufficient funds.");
 
         pere.setAmount(pere.getAmount() - amount);
         enfant.setAmount(enfant.getAmount() + amount);
@@ -82,23 +83,29 @@ public class ParentService {
         return new TransactionDTO(transactionRepository.save(t));
     }
 
+    // ← AVANT : retirerArgentEnfant(String pereId, String enfantId, Double amount)
+    // ← APRÈS : plus de pereId
     @Transactional
-    public TransactionDTO retirerArgentEnfant(String pereId, String enfantId, Double amount) {
-        String pid = clean(pereId);
-        String eid = clean(enfantId);
+    public TransactionDTO retirerArgentEnfant(String enfantId, Double amount) {
+        if (amount == null || amount <= 0)
+            throw new AppException(400, "Invalid amount.");
 
-        User pere = userRepository.findById(pid)
-                .orElseThrow(() -> new AppException(404, "Father not found: " + pid));
+        String eid = clean(enfantId); 
+
+        User pere   = getPERE(); 
         User enfant = userRepository.findById(eid)
-                .orElseThrow(() -> new AppException(404, "Child not found: " + eid));
+                .orElseThrow(() -> new AppException(404, "ENFANT not found: " + eid));
 
-        if (enfant.getAmount() < amount) throw new AppException(403, "Insufficient child funds.");
+        if (enfant.getRole() != EnumRole.ENFANT)
+            throw new AppException(400, "Source account is not a ENFANT.");
+        if (enfant.getAmount() < amount)
+            throw new AppException(403, "Insufficient ENFANT funds.");
 
         enfant.setAmount(enfant.getAmount() - amount);
         pere.setAmount(pere.getAmount() + amount);
         userRepository.save(enfant);
         userRepository.save(pere);
-        
+
         Transaction t = new Transaction(
             "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
             amount, EnumType.WITHDRAWAL, enfant, pere
@@ -107,7 +114,10 @@ public class ParentService {
     }
 
     public List<TransactionDTO> obtenirHistoriqueGlobal() {
-        return transactionRepository.findAll().stream().map(TransactionDTO::new).collect(Collectors.toList());
+        return transactionRepository.findAll()
+            .stream()
+            .map(TransactionDTO::new)
+            .collect(Collectors.toList());
     }
 
     public List<User> obtenirTousLesPortefeuilles() {
