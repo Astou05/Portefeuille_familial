@@ -1,10 +1,12 @@
 package com.example.demo.services;
 
-import java.util.List;
+// import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+// import java.util.stream.collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +15,7 @@ import com.example.demo.enums.EnumRole;
 import com.example.demo.enums.EnumType;
 import com.example.demo.objects.daos.Transaction;
 import com.example.demo.objects.daos.User;
+import com.example.demo.objects.dtos.PagedResponse;
 import com.example.demo.objects.dtos.TransactionDTO;
 import com.example.demo.repositories.TransactionRepository;
 import com.example.demo.repositories.UserRepository;
@@ -26,95 +29,71 @@ public class ChildService {
     @Autowired
     private TransactionRepository transactionRepository;
 
-    // 1. Transfert entre enfants
     @Transactional
-    public TransactionDTO effectuerTransfert(String emetteurId, String destinataireId, Double amount) {
+    public TransactionDTO effectuerTransfert(String emetteurId,
+                                            String destinataireId,
+                                            Double amount) {
+        if (amount == null || amount <= 0)
+            throw new AppException(400, "Invalid amount. Must be > 0.");
 
-        if (amount == null || amount <= 0) {
-            throw new AppException(400,
-                "Invalid amount. The transfer amount must be strictly greater than zero. " +
-                "Received value: " + amount + ".");
-        }
-
-        if (emetteurId.equals(destinataireId)) {
-            throw new AppException(403,
-                "Self-transfer is not allowed. The sender and beneficiary accounts must be different. " +
-                "Both sender and receiver are pointing to account ID: '" + emetteurId + "'.");
-        }
+        if (emetteurId.equals(destinataireId))
+            throw new AppException(403, "Self-transfer is not allowed.");
 
         User emetteur = userRepository.findById(emetteurId)
-                .orElseThrow(() -> new AppException(404,
-                    "Account not found. The sender account with ID '" + emetteurId +
-                    "' does not exist in the system."));
-                    
-        if (!emetteur.getRole().equals(EnumRole.ENFANT)) {
-            throw new AppException(403,
-                "Access denied. Only E accounts are allowed to initiate a transfer. " +
-                "Account '" + emetteurId + "' has role [" + emetteur.getRole() + "] and is not authorized.");
-        }
+            .orElseThrow(() -> new AppException(404,
+                "Sender account not found: " + emetteurId));
+
+        if (emetteur.getRole() != EnumRole.ENFANT)
+            throw new AppException(403, "Only ENFANT accounts can initiate a transfer.");
 
         User destinataire = userRepository.findById(destinataireId)
-                .orElseThrow(() -> new AppException(404,
-                    "Account not found. The recipient account with ID '" + destinataireId +
-                    "' does not exist in the system."));
-                    
-        if (!destinataire.getRole().equals(EnumRole.ENFANT)) {
-            throw new AppException(400,
-                "Invalid recipient. Transfers can only be made between E accounts. " +
-                "Account '" + destinataireId + "' has role [" + destinataire.getRole() + "] " +
-                "and cannot receive a transfer from a E.");
-        }
+            .orElseThrow(() -> new AppException(404,
+                "Recipient account not found: " + destinataireId));
 
-        if (emetteur.getAmount() < amount) {
-            throw new AppException(403,
-                "Insufficient funds. The account balance of '" + emetteurId + "' is " +
-                emetteur.getAmount() + ", which is lower than the requested transfer amount (" +
-                amount + "). Please reduce the transfer amount or recharge the account first.");
-        }
+        if (destinataire.getRole() != EnumRole.ENFANT)
+            throw new AppException(400, "Recipient must be a ENFANT account.");
+
+        if (emetteur.getAmount() < amount)
+            throw new AppException(403, "Insufficient funds.");
 
         emetteur.setAmount(emetteur.getAmount() - amount);
         destinataire.setAmount(destinataire.getAmount() + amount);
         userRepository.save(emetteur);
         userRepository.save(destinataire);
-        
+
         Transaction t = new Transaction(
             "TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(),
-            amount,
-            EnumType.TRANSFER,
-            emetteur,
-            destinataire
+            amount, EnumType.TRANSFER, emetteur, destinataire
         );
         return new TransactionDTO(transactionRepository.save(t));
     }
 
-    // 2. Consulter son propre solde
     public User obtenirSolde(String enfantId) {
         User enfant = userRepository.findById(enfantId)
-                .orElseThrow(() -> new AppException(404,
-                    "Account not found. No account exists with ID: " + enfantId));
-        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
-            throw new AppException(403,
-                "Access denied. This endpoint is reserved for E accounts only. " +
-                "Account '" + enfantId + "' has role [" + enfant.getRole() + "].");
-        }
+            .orElseThrow(() -> new AppException(404,
+                "Account not found: " + enfantId));
+
+        if (enfant.getRole() != EnumRole.ENFANT)
+            throw new AppException(403, "This endpoint is for ENFANT accounts only.");
+
         return enfant;
     }
 
-    // 3. Historique de l'enfant
-    public List<TransactionDTO> obtenirHistoriqueEnfant(String enfantId) {
-        User enfant = userRepository.findById(enfantId)
-                .orElseThrow(() -> new AppException(404,
-                    "Account not found. No account exists with ID: " + enfantId));
-        if (!enfant.getRole().equals(EnumRole.ENFANT)) {
-            throw new AppException(403,
-                "Access denied. Transaction history for this endpoint is restricted to E accounts. " +
-                "Account '" + enfantId + "' has role [" + enfant.getRole() + "] and is not authorized.");
-        }
+    // accepte Pageable, retourne PagedResponse<TransactionDTO>
+    public PagedResponse<TransactionDTO> obtenirHistoriqueEnfant(
+            String enfantId, Pageable pageable) {
 
-        return transactionRepository
-                .findByEmetteurIdOrDestinataireId(enfantId, enfantId)
-                .stream()
-                .map(TransactionDTO::new)
-                .collect(Collectors.toList());
+        User enfant = userRepository.findById(enfantId)
+            .orElseThrow(() -> new AppException(404,
+                "Account not found: " + enfantId));
+
+        if (enfant.getRole() != EnumRole.ENFANT)
+            throw new AppException(403, "This endpoint is for ENFANT accounts only.");
+
+        Page<TransactionDTO> page = transactionRepository
+            .findByEmetteurIdOrDestinataireId(enfantId, enfantId, pageable)
+            .map(TransactionDTO::new);
+
+        return new PagedResponse<>(page);
     }
 }
