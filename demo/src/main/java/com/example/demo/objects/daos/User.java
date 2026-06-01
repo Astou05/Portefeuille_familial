@@ -32,8 +32,14 @@ public class User {
     public void setName(String name)       { this.name = name; }
     public String getFirstName()           { return firstName; }
     public void setFirstName(String p)     { this.firstName = p; }
-    public Double getAmount()              { return amount; }
+    // public Double getAmount()              { return amount; }
     public void setAmount(Double m)        { this.amount = m; }
     public EnumRole getRole()              { return role; }
     public void setRole(EnumRole role)     { this.role = role; }
+    public Double getAmount() {
+    if (this.amount == null) {
+        return 0.0;
+    }
+    return this.amount;
+    }
 }
