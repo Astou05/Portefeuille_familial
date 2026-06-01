@@ -1,15 +1,17 @@
 package com.example.demo.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import com.example.demo.objects.daos.Transaction;
 import com.example.demo.objects.daos.User;
+import com.example.demo.objects.dtos.PagedResponse;
 import com.example.demo.objects.dtos.TransactionDTO;
+import com.example.demo.objects.dtos.UserDTO;
 import com.example.demo.repositories.TransactionRepository;
 import com.example.demo.repositories.UserRepository;
 import com.example.demo.enums.EnumRole;
@@ -25,7 +27,6 @@ public class ParentService {
     @Autowired
     private TransactionRepository transactionRepository;
 
-    
     private String clean(String id) {
         return id != null ? id.trim() : "";
     }
@@ -37,12 +38,10 @@ public class ParentService {
 
     @Transactional
     public User creerMonnaie(Double amount) {
-        if (amount == null || amount <= 0) {
+        if (amount == null || amount <= 0)
             throw new AppException(400, "Invalid amount. Must be > 0.");
-        }
 
-        User pere = getPERE(); // ← automatique
-
+        User pere = getPERE();
         pere.setAmount(pere.getAmount() + amount);
         userRepository.save(pere);
 
@@ -54,17 +53,15 @@ public class ParentService {
         return pere;
     }
 
-    
     @Transactional
     public TransactionDTO faireVersement(String enfantId, Double amount) {
         if (amount == null || amount <= 0)
             throw new AppException(400, "Invalid amount.");
 
-        String eid = clean(enfantId); 
-
-        User pere   = getPERE(); 
+        String eid  = clean(enfantId);
+        User pere   = getPERE();
         User enfant = userRepository.findById(eid)
-                .orElseThrow(() -> new AppException(404, "ENFANT not found: " + eid));
+            .orElseThrow(() -> new AppException(404, "ENFANT not found: " + eid));
 
         if (enfant.getRole() != EnumRole.ENFANT)
             throw new AppException(400, "Recipient is not a ENFANT.");
@@ -83,18 +80,15 @@ public class ParentService {
         return new TransactionDTO(transactionRepository.save(t));
     }
 
-    // ← AVANT : retirerArgentEnfant(String pereId, String enfantId, Double amount)
-    // ← APRÈS : plus de pereId
     @Transactional
     public TransactionDTO retirerArgentEnfant(String enfantId, Double amount) {
         if (amount == null || amount <= 0)
             throw new AppException(400, "Invalid amount.");
 
-        String eid = clean(enfantId); 
-
-        User pere   = getPERE(); 
+        String eid  = clean(enfantId);
+        User pere   = getPERE();
         User enfant = userRepository.findById(eid)
-                .orElseThrow(() -> new AppException(404, "ENFANT not found: " + eid));
+            .orElseThrow(() -> new AppException(404, "ENFANT not found: " + eid));
 
         if (enfant.getRole() != EnumRole.ENFANT)
             throw new AppException(400, "Source account is not a ENFANT.");
@@ -113,14 +107,19 @@ public class ParentService {
         return new TransactionDTO(transactionRepository.save(t));
     }
 
-    public List<TransactionDTO> obtenirHistoriqueGlobal() {
-        return transactionRepository.findAll()
-            .stream()
-            .map(TransactionDTO::new)
-            .collect(Collectors.toList());
+    //  accepte Pageable, retourne PagedResponse<TransactionDTO>
+    public PagedResponse<TransactionDTO> obtenirHistoriqueGlobal(Pageable pageable) {
+        Page<TransactionDTO> page = transactionRepository
+            .findAll(pageable)
+            .map(TransactionDTO::new); // ← map convertit chaque Transaction en TransactionDTO
+        return new PagedResponse<>(page);
     }
 
-    public List<User> obtenirTousLesPortefeuilles() {
-        return userRepository.findAll();
+    // accepte Pageable, retourne PagedResponse<UserDTO>
+    public PagedResponse<UserDTO> obtenirTousLesPortefeuilles(Pageable pageable) {
+        Page<UserDTO> page = userRepository
+            .findAll(pageable)
+            .map(UserDTO::new); // ← map convertit chaque User en UserDTO
+        return new PagedResponse<>(page);
     }
 }
